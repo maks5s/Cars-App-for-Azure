@@ -1,5 +1,7 @@
+import os
 from datetime import datetime
 
+import requests
 from fastapi import FastAPI, Request, Depends, Form, status, HTTPException
 from contextlib import asynccontextmanager
 from fastapi.templating import Jinja2Templates
@@ -67,7 +69,20 @@ async def add_car(
     session.commit()
     session.refresh(car)
 
-    return RedirectResponse(url=app.url_path_for("details", id=car.id), status_code=status.HTTP_303_SEE_OTHER)
+    # Викликаємо Azure Function для отримання повідомлення
+    azure_function_url = os.getenv("AZURE_FUNCTION_URL")
+    params = {"brand": car.brand, "model": car.model, "year": car.manufacture_year, "fuel": car.fuel_type}
+    try:
+        response = requests.get(azure_function_url, params=params)
+        response.raise_for_status()  # Перевірка на помилки
+        message = response.json().get("message", "")
+    except requests.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Azure Function error: {e}")
+
+    return RedirectResponse(
+        url=app.url_path_for("details", id=car.id) + f"?message={message}",
+        status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 @app.get("/details/{id}", response_class=HTMLResponse)
@@ -87,8 +102,10 @@ async def details(request: Request, id: int, session: Session = Depends(get_db_s
     car_dict["stars_percent"] = round((float(avg_rating) / 5.0) * 100) if review_count > 0 else 0
     car_dict["brand_model"] = car.brand + " " + car.model
 
+    message = request.query_params.get("message", "")
+
     return templates.TemplateResponse(
-        "details.html", {"request": request, "car": car_dict, "reviews": reviews}
+        "details.html", {"request": request, "car": car_dict, "reviews": reviews, "message": message}
     )
 
 

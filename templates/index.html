@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}Car List{% endblock %}
+{% block head %}
+    {{ super() }}
+    <style>
+      body {
+          min-height: 75rem;
+          padding-top: 4.5rem;
+      }
+
+      .score {
+        display: block;
+        font-size: 16px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .score-wrap {
+        display: inline-block;
+        position: relative;
+        height: 19px;
+      }
+
+      .score .stars-active {
+        color: #EEBD01;
+        position: relative;
+        z-index: 10;
+        display: inline-block;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      .score .stars-inactive {
+        color: grey;
+        position: absolute;
+        top: 0;
+        left: 0;
+        -webkit-text-stroke: initial;
+        /* overflow: hidden; */
+      }
+  </style>
+{% endblock %}
+{% block content %}
+      <h1>Cars</h1>
+
+      {% if True %}
+          <table class="table">
+              <thead>
+                  <tr>
+                      <th>Name</th>
+                      <th>Rating</th>
+                      <th class="text-end">Reviews</th>
+                      <th class="text-end">Actions</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  {% for car in cars %}
+                      <tr>
+                          <td>{{ car.brand + " " +  car.model + " " +  car.manufacture_year|string + " " +  car.fuel_type}}</td>
+                          <td>{% include "star_rating.html" %}</td>
+                          <td class="text-end">
+                              <a href="{{ url_for('details', id=car.id) }}" class="btn btn-sm btn-secondary">Reviews</a>
+                          </td>
+                          <td class="text-end">
+                              <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ car.id }}">
+                                  Delete
+                              </button>
+                              <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editModal{{ car.id }}">
+                                Edit
+                              </button>
+                          </td>
+                      </tr>
+                        <!-- Delete Modal -->
+                        <div class="modal fade" id="deleteModal{{ car.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ car.id }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="deleteModalLabel{{ car.id }}">Confirm Deletion</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        Are you sure you want to delete {{ car.brand }} {{ car.model }}?
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="button" class="btn btn-danger" onclick="deleteCar({{ car.id }})">Delete</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Edit Modal -->
+                        <div class="modal fade" id="editModal{{ car.id }}" tabindex="-1" aria-labelledby="editModalLabel{{ car.id }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="editModalLabel{{ car.id }}">Edit Car Information</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label for="brand_name" class="form-label">Brand</label>
+                                            <input type="text" class="form-control" id="brand_name{{ car.id }}" name="brand_name" value="{{ car.brand }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="model" class="form-label">Model</label>
+                                            <input type="text" class="form-control" id="model{{ car.id }}" name="model" value="{{ car.model }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="manufacture_year" class="form-label">Manufacture Year</label>
+                                            <input type="number" class="form-control" id="manufacture_year{{ car.id }}" name="manufacture_year" value="{{ car.manufacture_year }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="fuel_type" class="form-label">Fuel Type</label>
+                                            <input type="text" class="form-control" id="fuel_type{{ car.id }}" name="fuel_type" value="{{ car.fuel_type }}" required>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-success" onclick="editCar({{ car.id }})">Save Changes</button>
+                                        <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                  {% endfor %}
+              </tbody>
+          </table>
+      {% else %}
+          <p>There are no cars in the list.  Choose Add new car option.</p>
+      {% endif %}
+
+
+      <div class="d-flex justify-content-end">
+              <a href="{{ url_for('create_car') }}" class="btn btn-success px-4 gap-3">Add new car</a>
+      </div>
+
+<script>
+    function editCar(carId) {
+        const brand = document.getElementById('brand_name' + carId).value;
+        const model = document.getElementById('model' + carId).value;
+        const manufactureYear = document.getElementById('manufacture_year' + carId).value;
+        const fuelType = document.getElementById('fuel_type' + carId).value;
+
+        const data = {
+            brand_name: brand,
+            model: model,
+            manufacture_year: manufactureYear,
+            fuel_type: fuelType
+        };
+
+        fetch(`/edit_car/${carId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                alert('Failed to update car information');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error updating car information');
+        });
+    }
+
+    function deleteCar(carId) {
+        fetch(`/delete_car/${carId}`, {
+            method: 'DELETE',
+        })
+        .then(response => {
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                alert('Failed to delete car');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error deleting car');
+        });
+    }
+</script>
+
+{% endblock %}

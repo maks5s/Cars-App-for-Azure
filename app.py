@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, delete
 from starlette.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse
+from cosmosdb import save_to_cosmos, delete_from_cosmos, update_cosmos, get_fuel_type_from_cosmos
 from models import create_db_and_tables, drop_all, engine, Car, Review
 from sqlalchemy.sql import func
 
@@ -69,6 +70,12 @@ async def add_car(
     session.commit()
     session.refresh(car)
 
+    # Записуємо машину у Cosmos DB
+    try:
+        save_to_cosmos(car)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cosmos DB error: {e}")
+
     # Викликаємо Azure Function для отримання повідомлення
     azure_function_url = os.getenv("AZURE_FUNCTION_URL")
     params = {"brand": car.brand, "model": car.model, "year": car.manufacture_year, "fuel": car.fuel_type}
@@ -101,6 +108,12 @@ async def details(request: Request, id: int, session: Session = Depends(get_db_s
     car_dict["review_count"] = review_count
     car_dict["stars_percent"] = round((float(avg_rating) / 5.0) * 100) if review_count > 0 else 0
     car_dict["brand_model"] = car.brand + " " + car.model
+
+    # Отримуємо fuel_type із Cosmos DB
+    try:
+        car_dict["fuel_type"] = get_fuel_type_from_cosmos(id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cosmos DB fetch error: {e}")
 
     message = request.query_params.get("message", "")
 
@@ -139,6 +152,12 @@ async def delete_car(id: int, session: Session = Depends(get_db_session)):
     session.delete(car)
     session.commit()
 
+    # Видаляємо авто з Cosmos DB
+    try:
+        delete_from_cosmos(id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cosmos DB delete error: {e}")
+
     return RedirectResponse(url=app.url_path_for("index"), status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -167,5 +186,11 @@ async def edit_car(id: int, car_data: dict, session: Session = Depends(get_db_se
     car.manufacture_year = car_data['manufacture_year']
     car.fuel_type = car_data['fuel_type']
     session.commit()
+
+    # Оновлюємо авто в Cosmos DB
+    try:
+        update_cosmos(id, car_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cosmos DB update error: {e}")
 
     return RedirectResponse(url=app.url_path_for("index"), status_code=status.HTTP_303_SEE_OTHER)

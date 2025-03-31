@@ -22,27 +22,51 @@
 </div>
 {% endif %}
 
-  <h1>{{ car.brand_model }}</h1>
-  <div class="row">
-      <div class="col-md-2 fw-bold">Brand:</div>
-      <div class="col">{{ car.brand }}</div>
-  </div>
-  <div class="row">
-      <div class="col-md-2 fw-bold">Model:</div>
-      <div class="col">{{ car.model }}</div>
-  </div>
-  <div class="row">
-      <div class="col-md-2 fw-bold">Year:</div>
-      <div class="col">{{ car.manufacture_year }}</div>
-  </div>
-<div class="row">
-      <div class="col-md-2 fw-bold">Fuel Type:</div>
-      <div class="col">{{ car.fuel_type }}</div>
-  </div>
-  <div class="row">
-      <div class="col-md-2 fw-bold">Rating:</div>
-      <div class="col">{% if car.review_count %} {{ car.avg_rating|round(3) }} ({{ car.review_count }} {% if car.review_count == 1 %} review{% else %} reviews{% endif %}) {% else %} No ratings yet {% endif %}</div>
-  </div>
+<div class="container">
+    <div class="row">
+        <div class="col-md-6">
+            <h1>{{ car.brand_model }}</h1>
+            <div class="row">
+                <div class="col-md-4 fw-bold">Brand:</div>
+                <div class="col">{{ car.brand }}</div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 fw-bold">Model:</div>
+                <div class="col">{{ car.model }}</div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 fw-bold">Year:</div>
+                <div class="col">{{ car.manufacture_year }}</div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 fw-bold">Fuel Type:</div>
+                <div class="col">{{ car.fuel_type }}</div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 fw-bold">Rating:</div>
+                <div class="col">
+                    {% if car.review_count %}
+                        {{ car.avg_rating|round(3) }} ({{ car.review_count }}
+                        {% if car.review_count == 1 %} review{% else %} reviews{% endif %})
+                    {% else %} No ratings yet {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 text-center">
+            {% if car.image_url %}
+                <h5>Car Image:</h5>
+                <img src="{{ car.image_url }}" alt="Car Image" class="img-fluid" style="max-width: 300px;">
+            {% endif %}
+        </div>
+    </div>
+
+    <h4 class="mt-5">Upload Car Image</h4>
+    <form action="{{ url_for('upload_car_image', id=car.id) }}" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" class="form-control mb-2" required>
+        <button type="submit" class="btn btn-primary">Upload</button>
+    </form>
+</div>
 
   <h4 class="mt-5">Reviews</h4>
 

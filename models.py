@@ -24,6 +24,7 @@ class Car(SQLModel, table=True):
     model: str = Field(max_length=50)
     manufacture_year: int = Field()
     fuel_type: str = Field(max_length=50)
+    image_url: typing.Optional[str] = Field(default=None, max_length=500)
 
     reviews: typing.List["Review"] = Relationship(back_populates="car", cascade_delete=True)
 

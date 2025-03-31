@@ -1,14 +1,15 @@
 import os
 from datetime import datetime
-
+import uuid
 import requests
-from fastapi import FastAPI, Request, Depends, Form, status, HTTPException
+from fastapi import FastAPI, Request, Depends, Form, status, HTTPException, UploadFile, File
 from contextlib import asynccontextmanager
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, delete
 from starlette.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse
-from cosmosdb import save_to_cosmos, delete_from_cosmos, update_cosmos, get_fuel_type_from_cosmos
+from azure_interactions import save_to_cosmos, delete_from_cosmos, update_cosmos, get_fuel_type_from_cosmos, \
+    upload_file_to_container, delete_file_from_container
 from models import create_db_and_tables, drop_all, engine, Car, Review
 from sqlalchemy.sql import func
 
@@ -194,3 +195,42 @@ async def edit_car(id: int, car_data: dict, session: Session = Depends(get_db_se
         raise HTTPException(status_code=500, detail=f"Cosmos DB update error: {e}")
 
     return RedirectResponse(url=app.url_path_for("index"), status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/upload_car_image/{id}")
+async def upload_car_image(id: int, file: UploadFile = File(...), session: Session = Depends(get_db_session)):
+    car = session.exec(select(Car).where(Car.id == id)).first()
+    if not car:
+        raise HTTPException(status_code=404, detail="Car not found")
+
+    # Якщо є попереднє зображення, видаляємо його
+    if car.image_url:
+        previous_blob_name = car.image_url.split("/")[4].split("?")[0]  # Отримуємо назву старого файлу
+        delete_file_from_container(previous_blob_name)
+
+    # Генеруємо унікальне ім'я для файлу
+    file_extension = file.filename.split(".")[-1]
+    blob_name = f"{id}_{uuid.uuid4()}.{file_extension}"
+
+    try:
+        image_url = upload_file_to_container(file, blob_name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error uploading image: {e}")
+
+    car.image_url = image_url
+    session.commit()
+
+    car_data = {
+        "brand_name": car.brand,
+        "model": car.model,
+        "manufacture_year": car.manufacture_year,
+        "fuel_type": car.fuel_type,
+        "image_url": image_url,
+    }
+
+    try:
+        update_cosmos(id, car_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cosmos DB update error: {e}")
+
+    return RedirectResponse(url=app.url_path_for("details", id=id), status_code=status.HTTP_303_SEE_OTHER)

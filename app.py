@@ -9,7 +9,7 @@ from sqlmodel import Session, select, delete
 from starlette.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse
 from azure_interactions import save_to_cosmos, delete_from_cosmos, update_cosmos, get_fuel_type_from_cosmos, \
-    upload_file_to_container, delete_file_from_container
+    upload_file_to_container, delete_file_from_container, send_to_azure_queue, send_to_service_bus
 from models import create_db_and_tables, drop_all, engine, Car, Review
 from sqlalchemy.sql import func
 
@@ -76,6 +76,14 @@ async def add_car(
         save_to_cosmos(car)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Cosmos DB error: {e}")
+
+    car_info = f"{car.brand} {car.model} ({car.manufacture_year}) - {car.fuel_type}"
+
+    try:
+        send_to_azure_queue(car_info)
+        send_to_service_bus(car_info)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Queue/ServiceBus error: {e}")
 
     # Викликаємо Azure Function для отримання повідомлення
     azure_function_url = os.getenv("AZURE_FUNCTION_URL")

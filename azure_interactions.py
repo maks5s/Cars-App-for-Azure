@@ -1,6 +1,8 @@
 import os
 from datetime import datetime, timedelta
 from azure.cosmos import CosmosClient
+from azure.servicebus import ServiceBusClient, ServiceBusMessage
+from azure.storage.queue import QueueClient
 from dotenv import load_dotenv
 from fastapi import UploadFile
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
@@ -15,8 +17,20 @@ AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 AZURE_BLOB_CONTAINER_NAME = "fileupload"
 
 
+def send_to_azure_queue(message: str):
+    queue_client = QueueClient.from_connection_string(conn_str=os.getenv("AZURE_STORAGE_CONNECTION_STRING"), queue_name="carqueue")
+    queue_client.send_message(message)
+
+
+def send_to_service_bus(message: str):
+    servicebus_client = ServiceBusClient.from_connection_string(conn_str=os.getenv("AZURE_SERVICE_BUS_CONN_STR"))
+    with servicebus_client:
+        sender = servicebus_client.get_queue_sender(queue_name="carservicebus")
+        with sender:
+            sender.send_messages(ServiceBusMessage(message))
+
+
 def delete_file_from_container(blob_name: str):
-    """Видаляє файл з контейнера Blob"""
     blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
     container_client = blob_service_client.get_container_client(AZURE_BLOB_CONTAINER_NAME)
     blob_client = container_client.get_blob_client(blob_name)
